@@ -6,3 +6,5 @@ __pycache__/
 .agent/
 .DS_Store
 *.log
+.cookies.txt
+cookies.txt
