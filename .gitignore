@@ -3,7 +3,6 @@ __pycache__/
 *.pyc
 .env
 .pytest_cache/
-.agent/
 .DS_Store
 *.log
 .cookies.txt

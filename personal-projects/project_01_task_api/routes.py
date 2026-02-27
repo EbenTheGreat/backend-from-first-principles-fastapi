@@ -162,7 +162,7 @@ async def mark_as_complete(task_id: str):
     task = tasks_db[task_id]
     if task["status"] == Status.completed:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-        detail="status is already completed")
+        detail="Task is already completed")
 
     task["status"] = Status.completed
     task["updated_at"] = datetime.now(UTC)
