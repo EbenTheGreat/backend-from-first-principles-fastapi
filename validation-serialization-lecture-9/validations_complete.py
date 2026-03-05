@@ -11,7 +11,7 @@ pip install "fastapi[standard]" pydantic[email]
 
 from fastapi import FastAPI, Query, HTTPException, status
 from pydantic import BaseModel, EmailStr, HttpUrl, Field, field_validator, model_validator
-from typing import Optional, List
+
 from datetime import date, datetime, timedelta
 from enum import Enum
 import re
@@ -65,9 +65,9 @@ class Book(BaseModel):
     author: str
     year: int
     price: float
-    tags: List[str]
+    tags: list[str]
     available: bool = True
-    pages: Optional[int] = None
+    pages: int | None = None
 
 @app.post("/validation/type/book")
 def create_book_type_validation(book: Book):
@@ -172,7 +172,7 @@ class UserRegistration(BaseModel):
     
     # Built-in validators
     email: EmailStr  # Automatically validates email format
-    website: Optional[HttpUrl] = None  # Automatically validates URL format
+    website: HttpUrl | None = None  # Automatically validates URL format
     
     # Custom pattern validators
     phone: str
@@ -338,7 +338,7 @@ class PersonProfile(BaseModel):
     age: int
     height_cm: float
     weight_kg: float
-    retirement_age: Optional[int] = None
+    retirement_age: int | None = None
     
     @field_validator('age')
     @classmethod
@@ -638,11 +638,11 @@ class EmployeeRegistration(BaseModel):
     name: str
     email: EmailStr
     married: bool = False
-    partner_name: Optional[str] = None
+    partner_name: str | None = None
     has_children: bool = False
-    number_of_children: Optional[int] = None
+    number_of_children: int | None = None
     is_manager: bool = False
-    department: Optional[str] = None
+    department: str | None = None
     
     @model_validator(mode='after')
     def validate_conditional_requirements(self):
@@ -686,7 +686,7 @@ class HotelBooking(BaseModel):
     adults: int
     children: int = 0
     room_type: str
-    special_requests: Optional[str] = None
+    special_requests: str | None = None
     
     @field_validator('adults')
     @classmethod
@@ -900,8 +900,8 @@ class SearchQuery(BaseModel):
     limit: int = Field(10, ge=1, le=100, description="Items per page")
     sort: str = Field("date", description="Sort field")
     ascending: bool = Field(True, description="Sort order")
-    min_price: Optional[float] = Field(None, ge=0, description="Minimum price")
-    max_price: Optional[float] = Field(None, ge=0, description="Maximum price")
+    min_price: float | None = Field(None, ge=0, description="Minimum price")
+    max_price: float | None = Field(None, ge=0, description="Maximum price")
 
 @app.get("/transformation/search")
 def search_with_casting(
@@ -909,8 +909,8 @@ def search_with_casting(
     limit: int = Query(10, ge=1, le=100),
     sort: str = Query("date"),
     ascending: bool = Query(True),
-    min_price: Optional[float] = Query(None, ge=0),
-    max_price: Optional[float] = Query(None, ge=0)
+    min_price: float | None = Query(None, ge=0),
+    max_price: float | None = Query(None, ge=0)
 ):
     """
     TRANSFORMATION DEMO: Type Casting
@@ -966,7 +966,7 @@ class UserInput(BaseModel):
     last_name: str
     phone: str
     country_code: str = "+1"
-    bio: Optional[str] = None
+    bio: str | None = None
     
     @field_validator('email')
     @classmethod
@@ -1048,7 +1048,7 @@ class ProductInput(BaseModel):
     TRANSFORMATION: Setting defaults and computed values
     """
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     price: float = Field(..., gt=0)
     discount_percent: float = Field(0, ge=0, le=100)
     category: str

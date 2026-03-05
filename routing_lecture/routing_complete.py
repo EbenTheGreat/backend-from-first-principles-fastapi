@@ -7,7 +7,6 @@ Then visit: http://127.0.0.1:8000/docs
 """
 
 from fastapi import FastAPI, HTTPException, Query, Path
-from typing import Optional, List
 from pydantic import BaseModel
 
 # Initialize FastAPI app
@@ -129,10 +128,10 @@ def delete_book(book_id: int):
 
 @app.get("/api/books/search")
 def search_books(
-    query: Optional[str] = None,
-    author: Optional[str] = None,
-    year_min: Optional[int] = None,
-    year_max: Optional[int] = None,
+    query: str | None = None,
+    author: str | None = None,
+    year_min: int | None = None,
+    year_max: int | None = None,
     page: int = 1,
     limit: int = 10,
     sort: str = "asc"

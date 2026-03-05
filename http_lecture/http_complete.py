@@ -10,7 +10,6 @@ from fastapi import FastAPI, HTTPException, Header, Response, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from typing import Optional
 from datetime import datetime
 import hashlib
 import json
@@ -47,7 +46,7 @@ class Book(BaseModel):
     title: str = Field(..., min_length=1, max_length=100)
     author: str
     year: int = Field(..., ge=1000, le=2100)
-    isbn: Optional[str] = None
+    isbn: str | None = None
 
 # In-memory databases
 books_db = {
@@ -126,7 +125,7 @@ def create_book(book: Book):
     - Calling 3 times = 3 different books with different IDs
     """
     new_id = max(books_db.keys()) + 1 if books_db else 1
-    new_book = {"id": new_id, **book.dict()}
+    new_book = {"id": new_id, **book.model_dump()}
     books_db[new_id] = new_book
     
     return {
@@ -145,7 +144,7 @@ def replace_book(book_id: int, book: Book):
     - REPLACES the entire resource
     - Creates if doesn't exist (upsert)
     """
-    books_db[book_id] = {"id": book_id, **book.dict()}
+    books_db[book_id] = {"id": book_id, **book.model_dump()}
     
     return {
         "book": books_db[book_id],
@@ -156,9 +155,9 @@ def replace_book(book_id: int, book: Book):
 @app.patch("/api/books/{book_id}")
 def update_book(
     book_id: int,
-    title: Optional[str] = None,
-    author: Optional[str] = None,
-    year: Optional[int] = None
+    title: str | None = None,
+    author: str | None = None,
+    year: int | None = None
 ):
     """
     PATCH /api/books/{id} - Partially update book
@@ -297,12 +296,12 @@ def status_503():
 
 @app.get("/headers/request")
 def read_request_headers(
-    user_agent: Optional[str] = Header(None),
-    accept_language: Optional[str] = Header(None),
-    accept_encoding: Optional[str] = Header(None),
-    authorization: Optional[str] = Header(None),
-    x_request_id: Optional[str] = Header(None, alias="X-Request-ID"),
-    x_custom_header: Optional[str] = Header(None, alias="X-Custom-Header")
+    user_agent: str | None = Header(None),
+    accept_language: str | None = Header(None),
+    accept_encoding: str | None = Header(None),
+    authorization: str | None = Header(None),
+    x_request_id: str | None = Header(None, alias="X-Request-ID"),
+    x_custom_header: str | None = Header(None, alias="X-Custom-Header")
 ):
     """
     Read various request headers sent by client
@@ -360,8 +359,8 @@ def set_response_headers(response: Response):
 
 @app.get("/headers/content-negotiation")
 def content_negotiation(
-    accept_language: Optional[str] = Header(None),
-    accept: Optional[str] = Header(None)
+    accept_language: str | None = Header(None),
+    accept: str | None = Header(None)
 ):
     """
     Content Negotiation based on Accept headers
@@ -391,7 +390,7 @@ def content_negotiation(
 # SECTION 4: STATELESSNESS - Every Request is Self-Contained
 # ============================================================================
 
-def verify_token(authorization: Optional[str] = Header(None)):
+def verify_token(authorization: str | None = Header(None)):
     """
     Helper to verify authentication token
     Demonstrates statelessness - token checked on EVERY request
@@ -447,7 +446,7 @@ def protected_endpoint(user: dict = Header(default=None, include_in_schema=False
     }
 
 @app.get("/auth/admin-only")
-def admin_only_endpoint(authorization: Optional[str] = Header(None)):
+def admin_only_endpoint(authorization: str | None = Header(None)):
     """
     Protected endpoint with role-based access
     
@@ -550,7 +549,7 @@ def check_rate_limit(client_id: str, max_requests: int = 5, window_seconds: int 
 @app.get("/rate-limited/endpoint")
 def rate_limited_endpoint(
     request: Request,
-    authorization: Optional[str] = Header(None)
+    authorization: str | None = Header(None)
 ):
     """
     Rate-limited endpoint

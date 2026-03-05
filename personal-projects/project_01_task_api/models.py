@@ -3,7 +3,7 @@ from uuid import UUID
 from datetime import datetime, UTC, date
 
 from enum import Enum
-from typing import Optional, List
+
 
 
 class Status(str, Enum):
@@ -24,9 +24,9 @@ class Sort(str, Enum):
 
 class TaskCreate(BaseModel):
     title: str= Field(..., min_length=2, max_length=100)
-    description: Optional[str]=Field(None, min_length=2, max_length=5000)
-    status: Optional[Status]= Status.pending
-    priority: Optional[Priority]= Priority.medium
+    description: str | None =Field(None, min_length=2, max_length=5000)
+    status: Status | None = Status.pending
+    priority: Priority | None = Priority.medium
     due_date: datetime= Field(..., alias="dueDate")
 
     @field_validator("due_date")
@@ -38,17 +38,17 @@ class TaskCreate(BaseModel):
 
 
 class TaskUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    status: Optional[Status] = None
-    priority: Optional[Priority] = None
-    due_date: Optional[datetime] = Field(alias="dueDate", default=None)
+    title: str | None = None
+    description: str | None = None
+    status: Status | None = None
+    priority: Priority | None = None
+    due_date: datetime | None = Field(alias="dueDate", default=None)
 
 
 class TaskResponse(BaseModel):
     task_id: UUID
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     status: Status
     priority: Priority
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -57,7 +57,7 @@ class TaskResponse(BaseModel):
 
 
 class TaskListResponse(BaseModel):
-    tasks: List[TaskResponse]
+    tasks: list[TaskResponse]
     total: int
     page: int
     totalPages: int   
@@ -86,4 +86,4 @@ class TaskListResponse(BaseModel):
 
 
 class BulkCompleteRequest(BaseModel):
-    task_ids: List[UUID]
+    task_ids: list[UUID]

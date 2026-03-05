@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException, Header, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from typing import Optional, List
+
 from datetime import datetime
 import uuid
 import hashlib
@@ -68,10 +68,10 @@ class Message(BaseModel):
 class Conversation(BaseModel):
     """Represents a conversation (chat session)"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    title: Optional[str] = None
+    title: str | None = None
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime =  Field(default_factory=datetime.now)
-    messages: List[Message] = []
+    messages: list[Message] = []
     
     class Config:
         json_schema_extra = {
@@ -99,7 +99,7 @@ class CreateMessageRequest(BaseModel):
 
 class UpdateConversationRequest(BaseModel):
     """Request body for updating conversation metadata"""
-    title: Optional[str] = None
+    title: str | None = None
     
     class Config:
         json_schema_extra = {
@@ -200,7 +200,7 @@ async def demonstrate_status_code(code: int):
 # ==============================================================================
 
 @app.post("/conversations", status_code=201, tags=["HTTP Methods"])
-async def create_conversation(title: Optional[str] = None):
+async def create_conversation(title: str | None = None):
     """
     CREATE operation - Demonstrates POST method
     
@@ -336,11 +336,11 @@ async def delete_conversation(conversation_id: str):
 
 @app.get("/headers/demo", tags=["Headers"])
 async def demonstrate_headers(
-    user_agent: Optional[str] = Header(None),
-    accept: Optional[str] = Header(None),
-    authorization: Optional[str] = Header(None),
-    x_api_key: Optional[str] = Header(None),
-    accept_language: Optional[str] = Header(None)
+    user_agent: str | None = Header(None),
+    accept: str | None = Header(None),
+    authorization: str | None = Header(None),
+    x_api_key: str | None = Header(None),
+    accept_language: str | None = Header(None)
 ):
     """
     Demonstrate reading request headers
@@ -398,7 +398,7 @@ async def custom_response_headers(response: Response):
 @app.get("/cached-data", tags=["Caching"])
 async def get_cached_data(
     response: Response,
-    if_none_match: Optional[str] = Header(None)
+    if_none_match: str | None = Header(None)
 ):
     """
     Demonstrate HTTP caching with ETags
@@ -598,7 +598,7 @@ async def validation_error_demo(age: int):
 
 
 @app.get("/error/unauthorized", tags=["Error Handling"])
-async def unauthorized_demo(authorization: Optional[str] = Header(None)):
+async def unauthorized_demo(authorization: str | None = Header(None)):
     """
     Demonstrates 401 Unauthorized
     
@@ -698,8 +698,8 @@ async def metrics():
 
 @app.get("/content-negotiation", tags=["Advanced"])
 async def content_negotiation(
-    accept: Optional[str] = Header(None),
-    accept_language: Optional[str] = Header(None)
+    accept: str | None = Header(None),
+    accept_language: str | None = Header(None)
 ):
     """
     Demonstrate content negotiation

@@ -5,6 +5,8 @@ description: A practical quick reference guide for common FastAPI patterns, incl
 
 # FastAPI Quick Reference Guide
 
+> **Last Updated**: 2026-02-28 · **FastAPI**: v0.134.0 · **Python**: 3.10+ required · **Pydantic**: v2 only
+
 ## 📁 Additional Resources
 
 This skill includes extracted content from the official FastAPI documentation:
@@ -116,11 +118,9 @@ def read_items(skip: int = 0, limit: int = 10):
 def read_item(item_id: int, q: str):
     return {"item_id": item_id, "q": q}
 
-# Optional query with None
-from typing import Union
-
+# Optional query with None (Python 3.10+ syntax)
 @app.get("/items/{item_id}")
-def read_item(item_id: int, q: Union[str, None] = None):
+def read_item(item_id: int, q: str | None = None):
     if q:
         return {"item_id": item_id, "q": q}
     return {"item_id": item_id}
@@ -271,7 +271,7 @@ class ItemResponse(BaseModel):
 @app.post("/items", response_model=ItemResponse)
 def create_item(item: Item):
     # This will only return fields in ItemResponse
-    return {**item.dict(), "id": 1, "secret": "hidden"}
+    return {**item.model_dump(), "id": 1, "secret": "hidden"}
 ```
 
 ### Response Model with Status Code
@@ -304,7 +304,7 @@ class UserOut(BaseUser):
 @app.post("/users", response_model=UserOut)
 def create_user(user: UserIn):
     # Password won't be in response
-    return {"id": 1, **user.dict()}
+    return {"id": 1, **user.model_dump()}
 ```
 
 ---
@@ -563,6 +563,33 @@ async def read_async_users(db: AsyncSession = Depends(get_async_db)):
 
 ---
 
+## 📡 Streaming JSON Lines (New in 0.134.0)
+
+### Stream JSON Objects with yield
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class Item(BaseModel):
+    name: str
+    price: float
+
+@app.get("/items-stream")
+async def stream_items():
+    async def generate():
+        for i in range(100):
+            yield Item(name=f"Item {i}", price=i * 1.5)
+    return generate()
+```
+
+> **Tip**: Use streaming for large datasets, real-time feeds, or AI token output.
+> Docs: https://fastapi.tiangolo.com/tutorial/stream-json-lines/
+> Advanced binary streaming: https://fastapi.tiangolo.com/advanced/stream-data/
+
+---
+
 ## 🎯 Background Tasks
 
 ```python
@@ -624,12 +651,34 @@ app.add_middleware(
 
 ---
 
+## 🔒 Strict Content-Type Checking (New in 0.132.0)
+
+FastAPI now validates that JSON requests include a proper `Content-Type: application/json` header by default.
+
+```python
+# Disable strict checking if clients don't send Content-Type
+app = FastAPI(strict_content_type=False)
+```
+
+> Docs: https://fastapi.tiangolo.com/advanced/strict-content-type/
+
+---
+
+## ⚡ Performance Notes (v0.130.0+)
+
+- **2x faster JSON responses** when using Pydantic return types or `response_model` — FastAPI now serializes via Pydantic's Rust-based serializer
+- `ORJSONResponse` and `UJSONResponse` are **deprecated** as of v0.131.0 — the built-in JSON handling is now faster
+- Docs: https://fastapi.tiangolo.com/advanced/custom-response/#json-performance
+
+---
+
 ## 📚 Additional Resources
 
 - **Official Docs**: https://fastapi.tiangolo.com
 - **GitHub**: https://github.com/fastapi/fastapi
 - **Tutorial**: https://fastapi.tiangolo.com/tutorial/
 - **Advanced Guide**: https://fastapi.tiangolo.com/advanced/
+- **Release Notes**: https://fastapi.tiangolo.com/release-notes/
 
 ---
 

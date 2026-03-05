@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request, Response, Cookie
 from fastapi.security import OAuth2PasswordBearer,OAuth2PasswordRequestForm, APIKeyHeader
 from pydantic import BaseModel, EmailStr, field_validator
-from typing import Optional, List, Dict
+
 from datetime import datetime, timedelta, UTC
 from enum import Enum
 from passlib.context import CryptContext
@@ -47,7 +47,7 @@ class Permissions(str, Enum):
     ADMIN_ACCESS = "admin_access"
 
 
-ROLE_PERMISSIONS: Dict[Role, List[Permissions]] = {
+ROLE_PERMISSIONS: dict[Role, list[Permissions]] = {
     Role.ADMIN: [Permissions.READ, Permissions.WRITE, Permissions.DELETE, Permissions.ADMIN_ACCESS],
     Role.MODERATOR: [Permissions.READ, Permissions.WRITE, Permissions.DELETE], 
     Role.USER: [Permissions.READ, Permissions.WRITE]
@@ -144,7 +144,7 @@ class Note(BaseModel):
 # ============================================================================
 
 # Users database
-users_db: Dict[str, UserInDB] = {
+users_db: dict[str, UserInDB] = {
     "tony": UserInDB(
         username="tony",
         email="tonygee@gmail.com",
@@ -167,16 +167,16 @@ users_db: Dict[str, UserInDB] = {
     
 
 # Sessions database (simulates Redis)
-sessions_db: Dict[str, dict] = {}
+sessions_db: dict[str, dict] = {}
 
 # Notes database
-notes_db: Dict[int, Note] = {
+notes_db: dict[int, Note] = {
     1: Note(id=1, title="Tony's Note", content="My first note", owner="tony"),
     2: Note(id=2, title="Bob's Note", content="Moderator note", owner="bob"),
 }
 
 # Deleted notes (Dead Zone)
-deleted_notes_db: Dict[int, Note] = {}
+deleted_notes_db: dict[int, Note] = {}
 
 
 # API Keys database
@@ -196,7 +196,7 @@ api_keys_db = {
 }
 
 # Rate limiting storage
-login_attempts: Dict[str, dict] = {}
+login_attempts: dict[str, dict] = {}
 
 
 # ============================================================================
@@ -210,7 +210,7 @@ def get_password_hash(password: str) -> str:
     """hash a password"""
     return pwd_context.hash(password)
 
-def authenticate_user(username: str, password: str) -> Optional[UserInDB]:
+def authenticate_user(username: str, password: str) -> UserInDB | None:
     """
     Authenticate user with username and password
     Returns user if valid, None otherwise
@@ -233,7 +233,7 @@ def authenticate_user(username: str, password: str) -> Optional[UserInDB]:
     return user
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """
     Create JWT token
     
@@ -255,7 +255,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
-def verify_token(token: str) -> Optional[dict]:
+def verify_token(token: str) -> dict | None:
     """
     Verify JWT token
     Returns payload if valid, None otherwise
@@ -379,7 +379,7 @@ async def user_login(
 
 
 
-def get_current_user_stateful(session_id: Optional[str]= Cookie(None)) -> User:
+def get_current_user_stateful(session_id: str | None= Cookie(None)) -> User:
     """
     Dependency: Extract current user from session cookie
     
@@ -426,7 +426,7 @@ def read_user_stateful(current_user: User=Depends(get_current_user_stateful)):
 @app.post("/auth/stateful/logout")
 def logout_stateful(
     response: Response,
-    session_id: Optional[str] = Cookie(None)
+    session_id: str | None = Cookie(None)
 ):
     """
     Logout - Delete session

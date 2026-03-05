@@ -22,7 +22,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 from passlib.context import CryptContext
 from jose import jwt, JWTError
-from typing import Optional, List
+
 from datetime import datetime, timedelta
 import time
 import uuid
@@ -148,11 +148,11 @@ class RequestContext:
     """
     
     def __init__(self):
-        self.user_id: Optional[int] = None
-        self.username: Optional[str] = None
-        self.role: Optional[str] = None
-        self.request_id: Optional[str] = None
-        self.start_time: Optional[float] = None
+        self.user_id: int | None = None
+        self.username: str | None = None
+        self.role: str | None = None
+        self.request_id: str | None = None
+        self.start_time: float | None = None
     
     @classmethod
     def from_request(cls, request: Request) -> "RequestContext":
@@ -211,7 +211,7 @@ class UserRepository:
         self.db.refresh(db_user)
         return db_user
     
-    def get_user_by_id(self, user_id: int) -> Optional[UserModel]:
+    def get_user_by_id(self, user_id: int) -> UserModel | None:
         """
         Get user by ID
         
@@ -219,7 +219,7 @@ class UserRepository:
         """
         return self.db.query(UserModel).filter(UserModel.id == user_id).first()
     
-    def get_user_by_username(self, username: str) -> Optional[UserModel]:
+    def get_user_by_username(self, username: str) -> UserModel | None:
         """
         Get user by username
         
@@ -227,7 +227,7 @@ class UserRepository:
         """
         return self.db.query(UserModel).filter(UserModel.username == username).first()
     
-    def get_all_users(self) -> List[UserModel]:
+    def get_all_users(self) -> list[UserModel]:
         """
         Get all users
         
@@ -235,7 +235,7 @@ class UserRepository:
         """
         return self.db.query(UserModel).all()
     
-    def update_user_role(self, user_id: int, role: str) -> Optional[UserModel]:
+    def update_user_role(self, user_id: int, role: str) -> UserModel | None:
         """Update user role"""
         user = self.get_user_by_id(user_id)
         if user:
@@ -258,15 +258,15 @@ class BookRepository:
         self.db.refresh(db_book)
         return db_book
     
-    def get_book_by_id(self, book_id: int) -> Optional[BookModel]:
+    def get_book_by_id(self, book_id: int) -> BookModel | None:
         """Get book by ID"""
         return self.db.query(BookModel).filter(BookModel.id == book_id).first()
     
-    def get_books_by_owner(self, owner_id: int) -> List[BookModel]:
+    def get_books_by_owner(self, owner_id: int) -> list[BookModel]:
         """Get all books for an owner"""
         return self.db.query(BookModel).filter(BookModel.owner_id == owner_id).all()
     
-    def get_all_books(self) -> List[BookModel]:
+    def get_all_books(self) -> list[BookModel]:
         """Get all books"""
         return self.db.query(BookModel).all()
     
@@ -331,7 +331,7 @@ class UserService:
         
         return user
     
-    def authenticate(self, username: str, password: str) -> Optional[UserModel]:
+    def authenticate(self, username: str, password: str) -> UserModel | None:
         """
         BUSINESS LOGIC: Authenticate user
         
@@ -347,7 +347,7 @@ class UserService:
         
         return user
     
-    def get_user_profile(self, user_id: int) -> Optional[UserModel]:
+    def get_user_profile(self, user_id: int) -> UserModel | None:
         """
         BUSINESS LOGIC: Get user profile
         
@@ -411,7 +411,7 @@ class BookService:
         
         return book
     
-    def get_user_books(self, user_id: int) -> List[BookModel]:
+    def get_user_books(self, user_id: int) -> list[BookModel]:
         """Get all books for a user"""
         return self.book_repo.get_books_by_owner(user_id)
     
@@ -724,14 +724,14 @@ def promote_user(
     """
     try:
         user = service.promote_to_admin(user_id, context.user_id)
-        return {"message": "User promoted to admin", "user": UserResponse.from_orm(user)}
+        return {"message": "User promoted to admin", "user": UserResponse.model_validate(user)}
     
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/api/users", response_model=List[UserResponse])
+@app.get("/api/users", response_model=list[UserResponse])
 def list_users(
     context: RequestContext = Depends(require_auth),
     db: Session = Depends(get_db)
@@ -780,7 +780,7 @@ def create_book(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/api/books/my-books", response_model=List[BookResponse])
+@app.get("/api/books/my-books", response_model=list[BookResponse])
 def get_my_books(
     context: RequestContext = Depends(require_auth),
     service: BookService = Depends(get_book_service)
@@ -793,7 +793,7 @@ def get_my_books(
     books = service.get_user_books(context.user_id)
     return books
 
-@app.get("/api/books", response_model=List[BookResponse])
+@app.get("/api/books", response_model=list[BookResponse])
 def get_all_books(
     context: RequestContext = Depends(require_auth),
     db: Session = Depends(get_db)

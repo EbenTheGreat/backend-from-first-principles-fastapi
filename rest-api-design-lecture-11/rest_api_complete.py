@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, create_engine, desc, asc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
-from typing import List, Optional
+
 from datetime import datetime
 from enum import Enum
 import math
@@ -140,7 +140,7 @@ class PaginatedResponse(BaseModel):
     
     Enables frontend to render pagination controls
     """
-    data: List[dict]
+    data: list[dict]
     total: int
     page: int
     total_pages: int = Field(..., alias="totalPages")
@@ -170,9 +170,9 @@ class AuthorCreate(BaseModel):
 
 class AuthorUpdate(BaseModel):
     """Partial update - all fields optional"""
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    bio: Optional[str] = Field(None, min_length=10)
-    country: Optional[str] = None
+    name: str | None = Field(None, min_length=1, max_length=100)
+    bio: str | None = Field(None, min_length=10)
+    country: str | None = None
 
 class AuthorResponse(BaseModel):
     """
@@ -210,11 +210,11 @@ class BookCreate(BaseModel):
 
 class BookUpdate(BaseModel):
     """Partial update schema"""
-    title: Optional[str] = Field(None, min_length=1, max_length=200)
-    isbn: Optional[str] = Field(None, pattern=r"^\d{3}-\d{10}$")
-    description: Optional[str] = Field(None, min_length=10)
-    published_year: Optional[int] = Field(None, ge=1000, le=2100, alias="publishedYear")
-    status: Optional[BookStatus] = None
+    title: str | None = Field(None, min_length=1, max_length=200)
+    isbn: str | None = Field(None, pattern=r"^\d{3}-\d{10}$")
+    description: str | None = Field(None, min_length=10)
+    published_year: int | None = Field(None, ge=1000, le=2100, alias="publishedYear")
+    status: BookStatus | None = None
 
 class BookResponse(BaseModel):
     """
@@ -246,10 +246,10 @@ class OrganizationCreate(BaseModel):
 
 class OrganizationUpdate(BaseModel):
     """Update organization"""
-    name: Optional[str] = None
-    description: Optional[str] = None
-    industry: Optional[str] = None
-    status: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
+    industry: str | None = None
+    status: str | None = None
 
 class OrganizationResponse(BaseModel):
     """Organization response"""
@@ -270,14 +270,14 @@ class ProjectCreate(BaseModel):
     """Create project"""
     name: str
     description: str  # Consistent!
-    priority: Optional[str] = "medium"
+    priority: str | None = "medium"
 
 class ProjectUpdate(BaseModel):
     """Update project"""
-    name: Optional[str] = None
-    description: Optional[str] = None
-    status: Optional[str] = None
-    priority: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
+    status: str | None = None
+    priority: str | None = None
 
 class ProjectResponse(BaseModel):
     """Project response"""
@@ -320,7 +320,7 @@ def list_authors(
     sort_order: SortOrder = Query(SortOrder.DESC, description="Sort direction (asc/desc)"),
     
     # FILTERING (optional)
-    country: Optional[str] = Query(None, description="Filter by country"),
+    country: str | None = Query(None, description="Filter by country"),
     
     db: Session = Depends(get_db)
 ):
@@ -378,7 +378,7 @@ def list_authors(
     total_pages = math.ceil(total / limit) if total > 0 else 1
     
     # Convert to response format
-    data = [AuthorResponse.from_orm(author).dict(by_alias=True) for author in authors]
+    data = [AuthorResponse.model_validate(author).model_dump(by_alias=True) for author in authors]
     
     # ENVELOPE RESPONSE (not just an array!)
     return {
@@ -441,7 +441,7 @@ def create_author(
     - Non-idempotent (calling 3 times = 3 authors)
     - Use for creating new resources
     """
-    db_author = AuthorModel(**author.dict())
+    db_author = AuthorModel(**author.model_dump())
     db.add(db_author)
     db.commit()
     db.refresh(db_author)
@@ -473,7 +473,7 @@ def update_author(
         raise HTTPException(status_code=404, detail="Author not found")
     
     # Update only provided fields
-    update_data = updates.dict(exclude_unset=True)
+    update_data = updates.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(author, field, value)
     
@@ -523,8 +523,8 @@ def list_books(
     limit: int = Query(10, ge=1, le=100),
     sort_by: str = Query("created_at"),
     sort_order: SortOrder = Query(SortOrder.DESC),
-    status: Optional[BookStatus] = Query(None, description="Filter by status"),
-    author_id: Optional[int] = Query(None, gt=0, description="Filter by author", alias="authorId"),
+    status: BookStatus | None = Query(None, description="Filter by status"),
+    author_id: int | None = Query(None, gt=0, description="Filter by author", alias="authorId"),
     db: Session = Depends(get_db)
 ):
     """Complete list API for books"""
@@ -548,7 +548,7 @@ def list_books(
     
     total_pages = math.ceil(total / limit) if total > 0 else 1
     
-    data = [BookResponse.from_orm(book).dict(by_alias=True) for book in books]
+    data = [BookResponse.model_validate(book).model_dump(by_alias=True) for book in books]
     
     return {
         "data": data,
@@ -579,7 +579,7 @@ def create_book(book: BookCreate, db: Session = Depends(get_db)):
     if not author:
         raise HTTPException(status_code=400, detail="Author not found")
     
-    db_book = BookModel(**book.dict(by_alias=False))
+    db_book = BookModel(**book.model_dump(by_alias=False))
     db.add(db_book)
     db.commit()
     db.refresh(db_book)
@@ -597,7 +597,7 @@ def update_book(
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
     
-    update_data = updates.dict(exclude_unset=True, by_alias=False)
+    update_data = updates.model_dump(exclude_unset=True, by_alias=False)
     for field, value in update_data.items():
         setattr(book, field, value)
     
@@ -721,7 +721,7 @@ def get_author_books(
     
     total_pages = math.ceil(total / limit) if total > 0 else 1
     
-    data = [BookResponse.from_orm(book).dict(by_alias=True) for book in books]
+    data = [BookResponse.model_validate(book).model_dump(by_alias=True) for book in books]
     
     return {
         "data": data,
@@ -740,7 +740,7 @@ def list_organizations(
     limit: int = Query(10, ge=1, le=100),
     sort_by: str = Query("created_at"),
     sort_order: SortOrder = Query(SortOrder.DESC),
-    status: Optional[str] = Query(None),
+    status: str | None = Query(None),
     db: Session = Depends(get_db)
 ):
     """List organizations with pagination"""
@@ -759,7 +759,7 @@ def list_organizations(
     
     total_pages = math.ceil(total / limit) if total > 0 else 1
     
-    data = [OrganizationResponse.from_orm(org).dict(by_alias=True) for org in orgs]
+    data = [OrganizationResponse.model_validate(org).model_dump(by_alias=True) for org in orgs]
     
     return {"data": data, "total": total, "page": page, "totalPages": total_pages}
 
@@ -771,7 +771,7 @@ def create_organization(org: OrganizationCreate, db: Session = Depends(get_db)):
     SANE DEFAULT: status defaults to "active"
     Client doesn't need to provide it
     """
-    db_org = OrganizationModel(**org.dict())
+    db_org = OrganizationModel(**org.model_dump())
     db.add(db_org)
     db.commit()
     db.refresh(db_org)
@@ -802,7 +802,7 @@ def get_organization_projects(
     
     total_pages = math.ceil(total / limit) if total > 0 else 1
     
-    data = [ProjectResponse.from_orm(p).dict(by_alias=True) for p in projects]
+    data = [ProjectResponse.model_validate(p).model_dump(by_alias=True) for p in projects]
     
     return {"data": data, "total": total, "page": page, "totalPages": total_pages}
 
@@ -817,7 +817,7 @@ def create_project_in_org(
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
     
-    db_project = ProjectModel(**project.dict(), organization_id=org_id)
+    db_project = ProjectModel(**project.model_dump(), organization_id=org_id)
     db.add(db_project)
     db.commit()
     db.refresh(db_project)
@@ -879,7 +879,7 @@ def list_books_v2(
     
     total_pages = math.ceil(total / limit) if total > 0 else 1
     
-    items = [BookResponse.from_orm(book).dict(by_alias=True) for book in books]
+    items = [BookResponse.model_validate(book).model_dump(by_alias=True) for book in books]
     
     # Different structure than v1!
     return {

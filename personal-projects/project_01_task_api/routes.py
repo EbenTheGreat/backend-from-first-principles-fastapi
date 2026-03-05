@@ -3,7 +3,7 @@ from db import tasks_db
 from models import TaskCreate, TaskResponse, TaskListResponse, TaskUpdate, Status, Priority, Sort, BulkCompleteRequest
 from uuid import uuid4
 from datetime import datetime, UTC
-from typing import Optional, List
+
 import math
 from collections import Counter
 
@@ -62,11 +62,11 @@ async def get_task_by_id(task_id: str):
 async def get_all_tasks(
     page: int =Query(1, ge=1, description="page number"),
     limit: int = Query(5, ge=1, le=100, description="items per page, Max=100"),
-    priority: Optional[Priority]= Query(None, description="Filter by priority"),
-    status: Optional[Status]= Query(None, description="Filter by status"),
-    search: Optional[str] = Query(None, description="search in title and description"),
-    due_before: Optional[datetime] = Query(None, description="Filter tasks due before this date"),
-    overdue: Optional[bool] = Query(None, description="Filter tasks that are overdue"),
+    priority: Priority | None = Query(None, description="Filter by priority"),
+    status: Status | None = Query(None, description="Filter by status"),
+    search: str | None = Query(None, description="search in title and description"),
+    due_before: datetime | None = Query(None, description="Filter tasks due before this date"),
+    overdue: bool | None = Query(None, description="Filter tasks that are overdue"),
     sort_by: str = Query("created_at", description="Field to use in sorting"),
     sort_order: Sort = Query(Sort.asc, description="Sort by ascending or descending order")) -> TaskListResponse:
     """

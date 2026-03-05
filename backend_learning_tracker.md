@@ -198,6 +198,9 @@ async def read_async_items():
 - Main: https://fastapi.tiangolo.com
 - Tutorial: https://fastapi.tiangolo.com/tutorial/
 - Advanced: https://fastapi.tiangolo.com/advanced/
+- Release Notes: https://fastapi.tiangolo.com/release-notes/
+
+> **Current Version**: FastAPI 0.134.0 · Requires Python 3.10+ · Pydantic v2 only
 
 ### Practice Projects Ideas
 1. **Todo API** - Basic CRUD operations
@@ -245,5 +248,5 @@ async def read_async_items():
 
 ---
 
-**Last Updated**: [Date]
+**Last Updated**: 2026-02-28
 **Current Focus**: [Current Lecture/Topic]

@@ -1,7 +1,7 @@
 # FastAPI Tutorial Index
 
 > **Source**: https://fastapi.tiangolo.com/tutorial/
-> **Last Updated**: 2026-01-29
+> **Last Updated**: 2026-02-28
 
 This is a complete index of all FastAPI tutorial topics with direct links.
 
@@ -37,6 +37,7 @@ This is a complete index of all FastAPI tutorial topics with direct links.
 | 24 | Path Operation Configuration | https://fastapi.tiangolo.com/tutorial/path-operation-configuration/ | Tags, summary, description |
 | 25 | JSON Compatible Encoder | https://fastapi.tiangolo.com/tutorial/encoder/ | `jsonable_encoder()` |
 | 26 | Body - Updates | https://fastapi.tiangolo.com/tutorial/body-updates/ | PATCH operations |
+| 27 | Stream JSON Lines | https://fastapi.tiangolo.com/tutorial/stream-json-lines/ | Streaming JSON data with `yield` |
 
 ---
 
@@ -44,12 +45,12 @@ This is a complete index of all FastAPI tutorial topics with direct links.
 
 | # | Topic | URL | Description |
 |---|-------|-----|-------------|
-| 27 | Dependencies - First Steps | https://fastapi.tiangolo.com/tutorial/dependencies/ | Introduction to DI |
-| 28 | Classes as Dependencies | https://fastapi.tiangolo.com/tutorial/dependencies/classes-as-dependencies/ | Class-based DI |
-| 29 | Sub-dependencies | https://fastapi.tiangolo.com/tutorial/dependencies/sub-dependencies/ | Nested dependencies |
-| 30 | Dependencies in path operations | https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-in-path-operation-decorators/ | Decorator DI |
-| 31 | Global Dependencies | https://fastapi.tiangolo.com/tutorial/dependencies/global-dependencies/ | App-wide DI |
-| 32 | Dependencies with yield | https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-with-yield/ | Cleanup logic |
+| 28 | Dependencies - First Steps | https://fastapi.tiangolo.com/tutorial/dependencies/ | Introduction to DI |
+| 29 | Classes as Dependencies | https://fastapi.tiangolo.com/tutorial/dependencies/classes-as-dependencies/ | Class-based DI |
+| 30 | Sub-dependencies | https://fastapi.tiangolo.com/tutorial/dependencies/sub-dependencies/ | Nested dependencies |
+| 31 | Dependencies in path operations | https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-in-path-operation-decorators/ | Decorator DI |
+| 32 | Global Dependencies | https://fastapi.tiangolo.com/tutorial/dependencies/global-dependencies/ | App-wide DI |
+| 33 | Dependencies with yield | https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-with-yield/ | Cleanup logic |
 
 ---
 
@@ -57,11 +58,11 @@ This is a complete index of all FastAPI tutorial topics with direct links.
 
 | # | Topic | URL | Description |
 |---|-------|-----|-------------|
-| 33 | Security Intro | https://fastapi.tiangolo.com/tutorial/security/ | Overview |
-| 34 | Security - First Steps | https://fastapi.tiangolo.com/tutorial/security/first-steps/ | Basic auth |
-| 35 | Get Current User | https://fastapi.tiangolo.com/tutorial/security/get-current-user/ | User retrieval |
-| 36 | Simple OAuth2 | https://fastapi.tiangolo.com/tutorial/security/simple-oauth2/ | Password flow |
-| 37 | OAuth2 with JWT | https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/ | JWT tokens |
+| 34 | Security Intro | https://fastapi.tiangolo.com/tutorial/security/ | Overview |
+| 35 | Security - First Steps | https://fastapi.tiangolo.com/tutorial/security/first-steps/ | Basic auth |
+| 36 | Get Current User | https://fastapi.tiangolo.com/tutorial/security/get-current-user/ | User retrieval |
+| 37 | Simple OAuth2 | https://fastapi.tiangolo.com/tutorial/security/simple-oauth2/ | Password flow |
+| 38 | OAuth2 with JWT | https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/ | JWT tokens |
 
 ---
 
@@ -69,8 +70,8 @@ This is a complete index of all FastAPI tutorial topics with direct links.
 
 | # | Topic | URL | Description |
 |---|-------|-----|-------------|
-| 38 | Middleware | https://fastapi.tiangolo.com/tutorial/middleware/ | Request/response processing |
-| 39 | CORS | https://fastapi.tiangolo.com/tutorial/cors/ | Cross-origin requests |
+| 39 | Middleware | https://fastapi.tiangolo.com/tutorial/middleware/ | Request/response processing |
+| 40 | CORS | https://fastapi.tiangolo.com/tutorial/cors/ | Cross-origin requests |
 
 ---
 
@@ -78,8 +79,8 @@ This is a complete index of all FastAPI tutorial topics with direct links.
 
 | # | Topic | URL | Description |
 |---|-------|-----|-------------|
-| 40 | SQL Databases | https://fastapi.tiangolo.com/tutorial/sql-databases/ | Database integration |
-| 41 | Bigger Applications | https://fastapi.tiangolo.com/tutorial/bigger-applications/ | Multiple files/routers |
+| 41 | SQL Databases | https://fastapi.tiangolo.com/tutorial/sql-databases/ | Database integration |
+| 42 | Bigger Applications | https://fastapi.tiangolo.com/tutorial/bigger-applications/ | Multiple files/routers |
 
 ---
 
@@ -87,9 +88,9 @@ This is a complete index of all FastAPI tutorial topics with direct links.
 
 | # | Topic | URL | Description |
 |---|-------|-----|-------------|
-| 42 | Background Tasks | https://fastapi.tiangolo.com/tutorial/background-tasks/ | Async task processing |
-| 43 | Metadata and Docs URLs | https://fastapi.tiangolo.com/tutorial/metadata/ | Customizing docs |
-| 44 | Static Files | https://fastapi.tiangolo.com/tutorial/static-files/ | Serving static content |
+| 43 | Background Tasks | https://fastapi.tiangolo.com/tutorial/background-tasks/ | Async task processing |
+| 44 | Metadata and Docs URLs | https://fastapi.tiangolo.com/tutorial/metadata/ | Customizing docs |
+| 45 | Static Files | https://fastapi.tiangolo.com/tutorial/static-files/ | Serving static content |
 
 ---
 
@@ -97,8 +98,8 @@ This is a complete index of all FastAPI tutorial topics with direct links.
 
 | # | Topic | URL | Description |
 |---|-------|-----|-------------|
-| 45 | Testing | https://fastapi.tiangolo.com/tutorial/testing/ | Writing tests |
-| 46 | Debugging | https://fastapi.tiangolo.com/tutorial/debugging/ | Development tips |
+| 46 | Testing | https://fastapi.tiangolo.com/tutorial/testing/ | Writing tests |
+| 47 | Debugging | https://fastapi.tiangolo.com/tutorial/debugging/ | Development tips |
 
 ---
 
@@ -134,6 +135,8 @@ This is a complete index of all FastAPI tutorial topics with direct links.
 | 26 | Including WSGI | https://fastapi.tiangolo.com/advanced/wsgi/ | Flask/Django integration |
 | 27 | Generate Clients | https://fastapi.tiangolo.com/advanced/generate-clients/ | Client SDKs |
 | 28 | Extending OpenAPI | https://fastapi.tiangolo.com/advanced/extending-openapi/ | Custom OpenAPI |
+| 29 | Stream Data | https://fastapi.tiangolo.com/advanced/stream-data/ | Streaming binary data with `yield` |
+| 30 | Strict Content-Type Checking | https://fastapi.tiangolo.com/advanced/strict-content-type/ | JSON Content-Type validation |
 
 ---
 

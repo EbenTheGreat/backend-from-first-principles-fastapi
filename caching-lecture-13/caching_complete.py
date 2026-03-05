@@ -27,7 +27,7 @@ from pydantic import BaseModel
 from sqlalchemy import Column, Integer, String, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
-from typing import Optional
+
 import json
 import time
 import hashlib
@@ -104,7 +104,7 @@ def get_db():
 # CACHE HELPER FUNCTIONS
 # ============================================================================
 
-def cache_get(key: str) -> Optional[dict]:
+def cache_get(key: str) -> dict | None:
     """
     Get value from cache.
     Returns None on miss.
@@ -184,7 +184,7 @@ def get_product_cache_aside(product_id: int, db: Session = Depends(get_db)):
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    product_data = ProductResponse.from_orm(product).dict()
+    product_data = ProductResponse.model_validate(product).model_dump()
 
     # Step 3: Store in cache (TTL: 1 hour)
     cache_set(cache_key, product_data, ttl_seconds=3600)
@@ -223,12 +223,12 @@ def create_product_write_through(product: ProductCreate, db: Session = Depends(g
     - When you can't tolerate any stale cache reads
     """
     # Step 1: Write to database
-    db_product = ProductModel(**product.dict())
+    db_product = ProductModel(**product.model_dump())
     db.add(db_product)
     db.commit()
     db.refresh(db_product)
 
-    product_data = ProductResponse.from_orm(db_product).dict()
+    product_data = ProductResponse.model_validate(db_product).model_dump()
 
     # Step 2: Write SAME data to cache immediately (Write Through!)
     cache_key = f"product:{db_product.id}"
@@ -267,7 +267,7 @@ def update_product_write_through(
     db.commit()
     db.refresh(product)
 
-    product_data = ProductResponse.from_orm(product).dict()
+    product_data = ProductResponse.model_validate(product).model_dump()
 
     # Update cache immediately (Write Through)
     cache_set(f"product:{product_id}", product_data, ttl_seconds=3600)
@@ -549,7 +549,7 @@ def rate_limited_search(request: Request, query: str = Query(...)):
 
 @app.get("/db-cache/products")
 def get_products_with_cache(
-    category: Optional[str] = Query(None),
+    category: str | None = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
@@ -587,7 +587,7 @@ def get_products_with_cache(
     products = query.offset((page - 1) * limit).limit(limit).all()
 
     result = {
-        "data": [ProductResponse.from_orm(p).dict() for p in products],
+        "data": [ProductResponse.model_validate(p).model_dump() for p in products],
         "total": total,
         "page": page,
         "cached_at": time.strftime("%H:%M:%S")
@@ -638,7 +638,7 @@ def get_product_with_etag(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    product_data = ProductResponse.from_orm(product).dict()
+    product_data = ProductResponse.model_validate(product).model_dump()
 
     # Generate ETag = MD5 hash of content
     content_str = json.dumps(product_data, sort_keys=True)
