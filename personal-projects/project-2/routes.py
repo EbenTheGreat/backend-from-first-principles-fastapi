@@ -4,7 +4,7 @@ from db import bookmarks_db
 from uuid import uuid4
 from datetime import datetime, UTC
 import math
-from weather_services import get_from_cache, save_to_cache, get_weather, get_weather_for_bookmark, get_cache_stats
+from weather_services import get_from_cache, flush_cache, save_to_cache, get_weather, get_weather_for_bookmark, get_cache_stats, save_history, get_history
 
 
 
@@ -53,6 +53,7 @@ async def get_all_bookmarks(
 
     if country_code:
         bookmarks = [t for t in bookmarks if country_code == t["country_code"]]
+    
     bookmarks = sorted(bookmarks,
     key= lambda t: t.get(sort_by, ""),
     reverse=sort_order == Sort.descending)
@@ -126,11 +127,14 @@ async def get_bookmark_weather(bookmark_id: str, force_refresh: bool = Query(Fal
 
     bookmark = bookmarks_db[bookmark_id]
 
-    return await get_weather_for_bookmark(
+    weather = await get_weather_for_bookmark(
         city=bookmark["city"],
         country_code=bookmark["country_code"],
-        units=bookmark["units"]
+        units=bookmark["units"],
+        force_refresh=force_refresh
     )
+    save_history(bookmark_id, weather)
+    return weather
 
 
 @v1.get("/weather", status_code=status.HTTP_200_OK, response_model=WeatherResponse)
@@ -147,6 +151,17 @@ async def quick_weather_lookup(
     return await get_weather_for_bookmark(city, country_code, units)
 
 
+@v1.get("/bookmarks/{bookmark_id}/weather/history", response_model=list[WeatherResponse], status_code=status.HTTP_200_OK)
+async def get_weather_history(bookmark_id: str):
+    """
+    Return all past weather fetches for a bookmark, oldest first.
+    Returns 200 OK, 404 if bookmark not found.
+    """
+    if bookmark_id not in bookmarks_db:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bookmark not found")
+    return get_history(bookmark_id)
+
+
 @v1.get("/cache/stats", status_code=status.HTTP_200_OK)
 async def cache_stats():
     """
@@ -160,6 +175,6 @@ async def clear_cache():
     """
     clear cache data
     """
-    get_cache_stats.clear()
+    flush_cache()
     return
 

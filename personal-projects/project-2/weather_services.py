@@ -78,13 +78,15 @@ async def get_weather_for_bookmark(city: str, country_code: str, units: Units) -
     5. Return data
     """
     # Step 1: Check cache
-    cached = get_from_cache(city, country_code, units)
-    if cached:
-        return cached  
+    if not force_refresh:
+        cached = get_from_cache(city, country_code, units)
+        if cached:
+            return cached  
 
     # Step 2 & 3: Cache miss → call API + transform
     weather = await get_weather(city, country_code, units)
 
+    
     # Step 4: Store with TTL
     save_to_cache(city, country_code, units, weather)
 
@@ -99,5 +101,28 @@ def get_cache_stats() -> dict:
         "total_entries": len(keys),
         "cached_locations": list(keys)
     }
+
+
+def flush_cache() -> None:
+    """Clear cache data"""
+    cache.flushdb()
+    return
+
+
+def save_history(bookmark_id: str, weather: WeatherResponse) -> None:
+    """Append a WeatherResponse to the history list for this bookmark."""
+    cache.rpush(f"history:{bookmark_id}", weather.model_dump_json())
+
+
+def get_history(bookmark_id: str) -> list[WeatherResponse]:
+    """Return all past weather fetches for this bookmark, oldest first."""
+    entries = cache.lrange(f"history:{bookmark_id}", 0, -1)
+    return [WeatherResponse(**json.loads(entry)) for entry in entries]
+
+
+def set_treshold(bookmark_id: str, treshold: int) -> None:
+    """Set the treshold for temperature alert."""
+    cache.set(f"treshold:{bookmark_id}", treshold)
+    return
 
 
