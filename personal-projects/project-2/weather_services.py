@@ -68,7 +68,7 @@ async def get_weather(city: str, country_code: str, units: Units) -> WeatherResp
         )
 
 
-async def get_weather_for_bookmark(city: str, country_code: str, units: Units) -> WeatherResponse:
+async def get_weather_for_bookmark(city: str, country_code: str, units: Units, force_refresh: bool = False) -> WeatherResponse:
     """
     Full Cache Aside flow:
     1. Check cache

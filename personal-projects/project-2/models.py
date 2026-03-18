@@ -21,7 +21,7 @@ class BookMarkBase(BaseModel):
     city: str = Field(..., min_length=1, max_length=99)
     notes: str | None = Field(None, max_length=999)
     units: Units = Units.metric
-    treshold: int | None = Field(None, ge=0, le=100)
+    temperature_threshold: float | None = Field(None, description="Alert treshold for temperature in degrees")
 
     model_config= ConfigDict(populate_by_name=True)
 
@@ -48,7 +48,7 @@ class BookMarkUpdate(BaseModel):
     notes: str | None = Field(None, max_length=999)
     country_code: str | None = Field(None, alias="countryCode", min_length=2, max_length=2 )
     units: Units | None = None
-    treshold: int | None = Field(None, ge=0, le=100)
+    temperature_threshold: float | None = Field(None, description="Alert treshold for temperature in degrees")
 
     model_config= ConfigDict(populate_by_name=True)
 
@@ -59,6 +59,15 @@ class BookMarkListResponse(BaseModel):
     total_pages: int=Field(alias="totalPages")
 
     model_config = ConfigDict(populate_by_name=True)
+
+
+class BookmarkAlertResponse(BaseModel):
+    bookmark_id: str
+    city: str
+    threshold: float
+    current_temperature: float
+    message: str
+    
 
 
 class WeatherResponse(BaseModel):

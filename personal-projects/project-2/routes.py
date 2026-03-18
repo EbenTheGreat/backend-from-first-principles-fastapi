@@ -1,11 +1,12 @@
 from fastapi import APIRouter, HTTPException, Query, status
-from models import Sort, SortBy,Units, BookMarkCreate, BookMarkResponse, BookMarkUpdate, BookMarkListResponse, WeatherResponse
+from models import Sort, SortBy,Units, BookMarkCreate, BookMarkResponse, BookMarkUpdate,BookmarkAlertResponse, BookMarkListResponse, WeatherResponse
 from db import bookmarks_db
 from uuid import uuid4
 from datetime import datetime, UTC
 import math
 from weather_services import get_from_cache, flush_cache, save_to_cache, get_weather, get_weather_for_bookmark, get_cache_stats, save_history, get_history
-
+import asyncio
+from typing import Any
 
 
 v1 = APIRouter(prefix="/v1", tags=["bookmarks"])
@@ -160,6 +161,82 @@ async def get_weather_history(bookmark_id: str):
     if bookmark_id not in bookmarks_db:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bookmark not found")
     return get_history(bookmark_id)
+
+
+@v1.get("bookmarks/alerts/temperature", response_model=list[BookmarkAlertResponse], status_code=status.HTTP_200_OK)
+async def get_temperature_alerts():
+    """
+    Checks all bookmarks with a set treshold and returns those where the current 
+    temperature exceeds the current threshold
+    """
+    alerts = []
+    for bookmark_id, bookmark in bookmarks_db.items():
+        threshold = bookmark.get("temperature_threshold")
+
+        if threshold is not None:
+            weather = await get_weather_for_bookmark(city=bookmark["city"],
+            country_code=bookmark["country_code"],
+            units=bookmark["units"])
+
+            if weather.temperature >=threshold:
+                alerts.append(BookmarkAlertResponse(
+                    bookmark_id= bookmark_id,
+                    city=bookmark["city"],
+                    threshold=threshold,
+                    current_temperature=weather.temperature,
+                message=f"Alert! current temperature ({weather.temperature}°) is above your threshold of {threshold}°"
+                ))
+
+    return alerts
+
+
+@v1.post("/bookmarks/weather/bulk", status_code=status.HTTP_201_CREATED)
+async def fetch_weather_for_all_bookmarks(
+    page: int = Query(1, ge= 1,description="page number"),
+    limit: int = Query(5, ge=5, le=100, description="items per page, max=100")
+) -> dict[str, Any]:
+    """
+    fetches weather for multiple bookmarks concurrently
+    """
+    bookmarks = list(bookmarks_db.values())
+
+    total = len(bookmarks)
+    start = (page-1) * limit
+    end = start + limit
+    paginated_bookmarks = bookmarks[start:end]
+
+    fetch_tasks = []
+    for bookmark in paginated_bookmarks:
+        task = asyncio.create_task(get_weather_for_bookmark(
+                city=bookmark["city"],
+                country_code=bookmark["country_code"],
+                units=bookmark["units"],
+                force_refresh=True
+            ))
+        
+        fetch_tasks.append(task)
+
+    weather_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
+    results_list = []
+    for bookmark, weather in zip(paginated_bookmarks, weather_results):
+        results_list.append({
+            "bookmark_id": bookmark["id"],
+            "city": bookmark["city"],
+            "weather": weather
+        })
+            
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+
+
+    return {
+        "data": results_list,
+        "total": total,
+        "page": page,
+        "totalPages": total_pages
+    } 
+
+
+
 
 
 @v1.get("/cache/stats", status_code=status.HTTP_200_OK)
