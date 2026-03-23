@@ -21,8 +21,15 @@ class BookMarkBase(BaseModel):
     city: str = Field(..., min_length=1, max_length=99)
     notes: str | None = Field(None, max_length=999)
     units: Units = Units.metric
-    temperature_threshold: float | None = Field(None, description="Alert treshold for temperature in degrees")
-
+    temperature_threshold: float | None = Field(None, alias="temperatureThreshold", description="Alert treshold for temperature in degrees")
+    is_favourite: bool = Field(False, alias="isFavourite", description="Mark as favourite")
+    
+    @field_validator("temperature_threshold")
+    @classmethod
+    def validate_temperature_threshold(cls, v: float | None) -> float | None:
+        if v is not None and v < -100 or v > 100:
+            raise ValueError("Temperature threshold must be between -100 and 100")
+        return v
     model_config= ConfigDict(populate_by_name=True)
 
 
@@ -49,6 +56,7 @@ class BookMarkUpdate(BaseModel):
     country_code: str | None = Field(None, alias="countryCode", min_length=2, max_length=2 )
     units: Units | None = None
     temperature_threshold: float | None = Field(None, description="Alert treshold for temperature in degrees")
+    is_favourite: bool | None = Field(None, alias="isFavourite", description="Mark as favourite")
 
     model_config= ConfigDict(populate_by_name=True)
 

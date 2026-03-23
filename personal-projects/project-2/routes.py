@@ -38,7 +38,8 @@ async def get_all_bookmarks(
     country_code: str | None = Query(None, description="filter by country"),
     search: str | None= Query(None, description="search in city and notes"),
     sort_by: SortBy = Query(SortBy.created_at, description="field to use in sorting"),
-    sort_order: Sort = Query(Sort.ascending, description="sort by asc or desc order")
+    sort_order: Sort = Query(Sort.ascending, description="sort by asc or desc order"),
+    favourite: bool | None = Query(None, description="filter by is_favourite")
 ) -> BookMarkListResponse: 
 
     """
@@ -55,6 +56,11 @@ async def get_all_bookmarks(
     if country_code:
         bookmarks = [t for t in bookmarks if country_code == t["country_code"]]
     
+    if favourite is True:
+        bookmarks = [t for t in bookmarks if t["is_favourite"] == True]
+    elif favourite is False:
+        bookmarks = [t for t in bookmarks if t["is_favourite"] == False]
+
     bookmarks = sorted(bookmarks,
     key= lambda t: t.get(sort_by, ""),
     reverse=sort_order == Sort.descending)
