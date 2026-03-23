@@ -3,7 +3,7 @@
 ## 📚 Lecture Overview
 
 **Topic**: Backend Security - Injection Attacks & Browser-Based Vulnerabilities  
-**Date Started**: 2026-01-29  
+**Date Started**: 2026-03-23  
 **Status**: 🟡 In Progress
 
 ---
