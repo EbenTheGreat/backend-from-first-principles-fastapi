@@ -1,10 +1,22 @@
-from uuid import uuid4
-from datetime import datetime, UTC
+from typing import Annotated
+from fastapi import Depends
+from sqlmodel import SQLModel, Session, create_engine
 
-# In-memory bookmarks store — same pattern as tasks_db from project 1
-# Key: bookmark UUID string → Value: bookmark dict
-bookmarks_db: dict = {}
+# SQLite database file — persists in the project folder
+sqlite_url = "sqlite:///bookmarks.db"
+engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
 
-# In-memory weather cache — same Cache Aside pattern from caching lecture
-# Key: "city:country_code:units" (e.g. "london:GB:metric") → Value: {data, fetched_at}
-weather_cache: dict = {}
+
+def create_db_and_tables():
+    """Create all SQLModel table models in the database on startup."""
+    SQLModel.metadata.create_all(engine)
+
+
+def get_session():
+    """FastAPI dependency — yields one Session per request, closes automatically."""
+    with Session(engine) as session:
+        yield session
+
+
+# Reusable type alias — inject into route params instead of using Depends() each time
+SessionDep = Annotated[Session, Depends(get_session)]

@@ -5,6 +5,10 @@ from fastapi import HTTPException, status
 from config import settings
 from models import WeatherResponse, Units
 import fakeredis
+from sqlmodel import Session, select
+from models import WeatherHistory
+import uuid
+
 
 cache = fakeredis.FakeRedis(decode_responses=True)
 
@@ -50,9 +54,9 @@ async def get_weather(city: str, country_code: str, units: Units) -> WeatherResp
         except httpx.TimeoutException:
             raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Weather API timeout")
         except httpx.HTTPStatusError as e:
-            raise HTTPException(status_code=e.response.status_code, detail=f"Weather API error: {e}")
-        except httpx.RequestException as e:
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Weather API unavailable: {e}")
+            raise HTTPException(status_code=e.response.status_code, detail=f"Weather API error: {e.response.status_code} {e.response.reason_phrase}")
+        except httpx.RequestException:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Weather API unavailable")
 
         return WeatherResponse(
             city=data["name"],
@@ -109,20 +113,40 @@ def flush_cache() -> None:
     return
 
 
-def save_history(bookmark_id: str, weather: WeatherResponse) -> None:
+def save_history(session: Session, bookmark_id: uuid.UUID, weather: WeatherResponse) -> None:
     """Append a WeatherResponse to the history list for this bookmark."""
-    cache.rpush(f"history:{bookmark_id}", weather.model_dump_json())
+    history_record = WeatherHistory(
+        bookmark_id=bookmark_id,
+        city=weather.city,
+        country_code=weather.country_code,
+        temperature=weather.temperature,
+        feels_like=weather.feels_like,
+        description=weather.description,
+        humidity=weather.humidity,
+        wind_speed=weather.wind_speed,
+        units=weather.units,
+        fetched_at=weather.fetched_at
+    )
+    session.add(history_record)
+    session.commit()
+    session.refresh(history_record)
+    return history_record
 
 
-def get_history(bookmark_id: str) -> list[WeatherResponse]:
+def get_history(session: Session, bookmark_id: uuid.UUID) -> list[WeatherResponse]:
     """Return all past weather fetches for this bookmark, oldest first."""
-    entries = cache.lrange(f"history:{bookmark_id}", 0, -1)
-    return [WeatherResponse(**json.loads(entry)) for entry in entries]
+    statement = select(WeatherHistory).where(WeatherHistory.bookmark_id == bookmark_id).order_by(WeatherHistory.fetched_at.asc())
+    results = session.exec(statement)
+    return results.all()
 
 
-def set_treshold(bookmark_id: str, treshold: int) -> None:
+def set_treshold(session: Session, bookmark_id: uuid.UUID, treshold: float) -> None:
     """Set the treshold for temperature alert."""
-    cache.set(f"treshold:{bookmark_id}", treshold)
-    return
+    bookmark = session.get(Bookmark, bookmark_id)
+    if not bookmark:
+        return None
+    bookmark.temperature_threshold = treshold
+    session.add(bookmark)
+    session.commit()
 
 
