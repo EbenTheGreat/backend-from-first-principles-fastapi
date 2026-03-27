@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status, Request, Response
 from models import (
     Sort, SortBy, Units,
     Bookmark, BookMarkCreate, BookMarkResponse,
     BookMarkUpdate, BookmarkAlertResponse,
-    BookMarkListResponse, WeatherResponse, WeatherHistory
+    BookMarkListResponse, WeatherResponse, WeatherHistory,
+    WeatherCompareItem
 )
 from db import SessionDep
 from sqlmodel import select, func, or_
@@ -13,10 +14,13 @@ from datetime import datetime, UTC
 from weather_services import (
     get_from_cache, flush_cache, save_to_cache,
     get_weather, get_weather_for_bookmark,
-    get_cache_stats, save_history, get_history
+    get_cache_stats, save_history, get_history,
+    check_rate_limit
 )
 import asyncio
 from typing import Any
+import hashlib
+
 
 
 v1 = APIRouter(prefix="/v1", tags=["bookmarks"])
@@ -124,7 +128,7 @@ async def get_all_bookmarks(
 
 
 @v1.get("/bookmarks/{bookmark_id}", response_model=BookMarkResponse, status_code=status.HTTP_200_OK)
-async def get_bookmark(bookmark_id: uuid.UUID, session: SessionDep):
+async def get_bookmark(bookmark_id: uuid.UUID, session: SessionDep, request: Request):
     """
     Get a single bookmark by UUID.
     Returns 200 OK if found, 404 Not Found if missing.
@@ -135,7 +139,29 @@ async def get_bookmark(bookmark_id: uuid.UUID, session: SessionDep):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Bookmark {bookmark_id} not found"
         )
-    return bookmark
+
+    # 1. Serialize to a stable dict then string (sort_keys ensures consistent ordering)
+    data = BookMarkResponse.model_validate(bookmark, from_attributes=True).model_dump(mode="json")
+    content_str = json.dumps(data, sort_keys=True)
+
+    # 2. Hash it → this IS the ETag
+    etag = hashlib.sha256(content_str.encode("utf-8")).hexdigest()
+
+    # 3. Check If-None-Match header
+    if_none_match = request.headers.get("If-None-Match")
+    if if_none_match == etag:
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED,
+                        headers = {"ETag": etag})
+
+    # 4. First request or content changed → full response
+    return Response(
+        content=json.dumps(data),  # data is already a plain dict
+        media_type="application/json",
+        headers={
+            "ETag": etag,
+            "Cache-Control": "public, max-age=3600" # browser can cache for 1 hour
+            }
+    )
 
 
 @v1.patch("/bookmarks/{bookmark_id}", response_model=BookMarkResponse, status_code=status.HTTP_200_OK)
@@ -184,12 +210,15 @@ async def delete_bookmark(bookmark_id: uuid.UUID, session: SessionDep):
 async def get_bookmark_weather(
     bookmark_id: uuid.UUID,
     session: SessionDep,
+    request: Request,
     force_refresh: bool = Query(False, description="Bypass cache")
 ):
     """
     Get weather for a saved bookmark.
-    Returns 200 OK, 404 if bookmark not found, 502/503/504 if weather API fails.
+    Returns 200 OK, 404 if bookmark not found, 429 if rate limited, 502/503/504 if weather API fails.
     """
+    check_rate_limit(request.client.host)  # 429 if over 10 req/min per IP
+
     bookmark = session.get(Bookmark, bookmark_id)
     if not bookmark:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bookmark not found")
@@ -206,6 +235,7 @@ async def get_bookmark_weather(
 
 @v1.get("/weather", status_code=status.HTTP_200_OK, response_model=WeatherResponse)
 async def quick_weather_lookup(
+    request: Request,
     city: str = Query(..., min_length=1, description="City name"),
     country_code: str = Query(..., min_length=2, max_length=2, description="Country code (e.g. GB, NG)"),
     units: Units = Query(Units.metric, description="Temperature units"),
@@ -213,8 +243,9 @@ async def quick_weather_lookup(
 ):
     """
     Quick weather lookup without needing a saved bookmark.
-    Returns 200 OK, 502/503/504 if weather API fails.
+    Returns 200 OK, 429 if rate limited, 502/503/504 if weather API fails.
     """
+    check_rate_limit(request.client.host)  # 429 if over 10 req/min per IP
     return await get_weather_for_bookmark(city, country_code, units, force_refresh)
 
 
@@ -319,6 +350,84 @@ async def fetch_weather_for_all_bookmarks(
             
     total_pages = math.ceil(total / limit) if total > 0 else 1
     return {"data": results_list, "total": total, "page": page, "totalPages": total_pages}
+
+
+@v1.get("/weather/compare", response_model=list[WeatherCompareItem],status_code=status.HTTP_200_OK)
+async def compare_weather(
+    session: SessionDep,
+    ids: str = Query(description="comma-seperated bookmark UUIDs to compare")
+    ):
+    """
+    Fetch and compare weather for multiple bookmarks side by side.
+    Pass bookmark IDs as: ?ids=uuid1,uuid2,uuid3
+    """
+    try:
+        # 1. Parse the comma-separated string into a list of UUIDs
+        parsed_ids = [uuid.UUID(i.strip()) for i in ids.split(",") if i.strip()]
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="One or more IDs are not valid UUIDs"
+        )
+
+    if not parsed_ids:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No IDs provided"
+        )
+
+    # 2. Fetch all bookmarks from the DB in one query
+    bookmarks = session.exec(select(Bookmark).where(Bookmark.id.in_(parsed_ids))).all()
+
+    # Build a lookup so we can detect IDs that don't exist in the DB
+    found = {b.id: b for b in bookmarks}
+
+    # 3. Fire all weather requests concurrently
+    tasks = [
+        asyncio.create_task(
+            get_weather_for_bookmark(
+                city=b.city,
+                country_code=b.country_code,
+                units=b.units
+            )
+        )
+        for b in bookmarks
+    ]
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # 4. Build the comparison list
+    comparison = []
+    for b, result in zip(bookmarks, results):
+        if isinstance(result, Exception):
+            comparison.append(WeatherCompareItem(
+                bookmark_id=str(b.id),
+                city=b.city,
+                country_code=b.country_code,
+                weather=None,
+                error=str(result)
+            ))
+        else:
+            comparison.append(WeatherCompareItem(
+                bookmark_id=str(b.id),
+                city=b.city,
+                country_code=b.country_code,
+                weather=result
+            ))
+
+    # Also report any IDs that weren't in the DB at all
+    for pid in parsed_ids:
+        if pid not in found:
+            comparison.append(WeatherCompareItem(
+                bookmark_id=str(pid),
+                city="unknown",
+                country_code="??",
+                weather=None,
+                error="Bookmark not found"
+            ))
+
+    return comparison
+
 
 
 @v1.get("/cache/stats", status_code=status.HTTP_200_OK)

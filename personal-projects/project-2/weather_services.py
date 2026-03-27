@@ -113,6 +113,42 @@ def flush_cache() -> None:
     return
 
 
+# ─────────────────────────────────────────────
+# RATE LIMITING  (caching_complete.py Section 5)
+# ─────────────────────────────────────────────
+
+RATE_LIMIT = 10          # max requests per window
+RATE_WINDOW = 60         # window size in seconds (1 minute)
+
+def check_rate_limit(client_ip: str) -> None:
+    """
+    Enforce a per-IP rate limit using fakeredis atomic INCR.
+
+    Pattern (identical to caching_complete.py Section 5):
+    1. Build key:  rate:{ip}:{current_minute}
+    2. INCR counter atomically — thread-safe, no race conditions
+    3. On first hit in this window, set TTL so counter auto-expires
+    4. If count > limit → raise 429 Too Many Requests with Retry-After header
+    """
+    import time
+    current_minute = int(time.time() / RATE_WINDOW)
+    rate_key = f"rate:{client_ip}:{current_minute}"
+
+    count = cache.incr(rate_key)           # atomic: returns new value after increment
+
+    if count == 1:
+        cache.expire(rate_key, RATE_WINDOW)  # set TTL only on the very first hit
+
+    if count > RATE_LIMIT:
+        ttl = cache.ttl(rate_key)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Rate limit exceeded ({RATE_LIMIT} requests/min). Retry in {ttl}s.",
+            headers={"Retry-After": str(ttl)}
+        )
+
+
+
 def save_history(session: Session, bookmark_id: uuid.UUID, weather: WeatherResponse) -> None:
     """Append a WeatherResponse to the history list for this bookmark."""
     history_record = WeatherHistory(

@@ -160,3 +160,16 @@ class WeatherResponse(BaseModel):
     # populate_by_name=True → allows both snake_case (internal use in weather_services.py)
     # AND camelCase aliases (API responses) to work at the same time
     model_config = ConfigDict(populate_by_name=True)
+
+
+class WeatherCompareItem(BaseModel):
+    bookmark_id: str = Field(alias="bookmarkId")
+    city: str = Field(..., min_length=2, max_length=99)
+    country_code: str = Field(..., min_length=2, max_length=2, alias="countryCode")
+    weather: WeatherResponse | None = None
+    error: str | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+

@@ -204,3 +204,67 @@ results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
 for bookmark, result in zip(bookmarks, results):
     if isinstance(result, Exception): continue # Handle localized crashes safely
 ```
+
+---
+
+## 🚦 14. Rate Limiting with Atomic INCR
+**The Problem:** A single client can flood your weather endpoint with thousands of requests per minute, hammering the OpenWeather API (which has rate limits and costs money) and risking a server overload.
+
+**The Pattern** (from `caching_complete.py` Section 5): Use Redis's atomic `INCR` (increment) to count requests per IP per time window. Because `INCR` is atomic, it's thread-safe — no two requests can read-and-write the counter simultaneously, even under heavy concurrent load.
+
+```python
+RATE_LIMIT = 10    # requests per window
+RATE_WINDOW = 60   # seconds
+
+def check_rate_limit(client_ip: str) -> None:
+    current_minute = int(time.time() / RATE_WINDOW)
+    rate_key = f"rate:{client_ip}:{current_minute}"
+
+    count = cache.incr(rate_key)    # atomic: increment + return new value in one op
+
+    if count == 1:
+        cache.expire(rate_key, RATE_WINDOW)  # auto-wipe counter after 60 seconds
+
+    if count > RATE_LIMIT:
+        ttl = cache.ttl(rate_key)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Retry in {ttl}s.",
+            headers={"Retry-After": str(ttl)}  # tells client exactly when to retry
+        )
+```
+
+**Three key design decisions:**
+1. **Key includes the minute** (`rate:{ip}:{current_minute}`) → counter auto-resets every new minute window without any cleanup code.
+2. **TTL set only on `count == 1`** → zero-cost on every subsequent request in the same window; only one `.expire()` call per window per IP.
+3. **`Retry-After` header** → tells the client exactly how many seconds to wait. Standard HTTP — browsers and API clients can use this automatically.
+
+---
+
+## 🪤 13. The `populate_by_name` Consistency Trap
+**The Problem:** You add a new Pydantic response model, give its fields camelCase aliases, but forget to add `model_config = ConfigDict(populate_by_name=True)`. Every *other* model in the codebase already has it, so the pattern feels obvious — but the new model silently lacks it.
+
+The result is a confusing `500 Internal Server Error` with a Pydantic `ValidationError` that says fields like `bookmarkId` and `countryCode` are *missing*, even though your Python code is clearly passing `bookmark_id=...` and `country_code=...`.
+
+```python
+# 💥 BROKEN — alias-only mode; snake_case kwargs are rejected at runtime
+class WeatherCompareItem(BaseModel):
+    bookmark_id: str = Field(alias="bookmarkId")
+    country_code: str = Field(..., alias="countryCode")
+    # No model_config → Pydantic ONLY accepts "bookmarkId" / "countryCode"
+
+WeatherCompareItem(bookmark_id="abc", country_code="GB")  # 💥 ValidationError
+```
+
+**The Fix:** Every model that uses `alias` and is also constructed internally with Python keyword arguments **must** have `populate_by_name=True`.
+
+```python
+# ✅ CORRECT
+class WeatherCompareItem(BaseModel):
+    bookmark_id: str = Field(alias="bookmarkId")
+    country_code: str = Field(..., alias="countryCode")
+
+    model_config = ConfigDict(populate_by_name=True)  # accepts both forms
+```
+
+**Rule of thumb:** If a model has *any* `Field(alias=...)`, add `populate_by_name=True`. Always. No exceptions.
