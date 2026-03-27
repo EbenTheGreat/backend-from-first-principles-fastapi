@@ -268,3 +268,51 @@ class WeatherCompareItem(BaseModel):
 ```
 
 **Rule of thumb:** If a model has *any* `Field(alias=...)`, add `populate_by_name=True`. Always. No exceptions.
+
+---
+
+## 🏭 15. Static `default` vs Dynamic `default_factory`
+**The Problem:** Setting a default datetime or UUID on a database model using `default=datetime.now()`.
+```python
+# 💥 DANGEROUS CODE
+class Bookmark(SQLModel, table=True):
+    # Every row will have the exact same time (the moment the server started!)
+    created_at: datetime = Field(default=datetime.now(UTC))
+```
+
+**The Fix:** Use `default_factory` for any value that needs to be freshly generated for every new record.
+```python
+# ✅ SAFE CODE
+class Bookmark(SQLModel, table=True):
+    # Calls datetime.now(UTC) fresh for every new record
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    
+    # Calls uuid.uuid4() fresh for every new record
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+```
+- **Use `default`** for static, fixed values (`default=False`, `default="user"`).
+- **Use `default_factory`** for dynamic values that require a function call to generate properly configured unique data (`default_factory=list`, `default_factory=uuid.uuid4`).
+
+---
+
+## 🛑 16. Strict Custom Formatting with `@field_validator`
+**The Problem:** Pydantic's built-in `Field(min_length=2, max_length=2)` ensures a string is exactly 2 characters long, but it can't enforce *what* those characters are (e.g. blocking numbers, symbols, or lowercase letters for a Country Code).
+**The Fix:** Use a `@field_validator` to intercept the raw string and run standard Python string methods on it before the object is officially created.
+
+```python
+class BookmarkBase(BaseModel):
+    country_code: str = Field(min_length=2, max_length=2)
+
+    @field_validator("country_code")
+    @classmethod
+    def validate_country_code(cls, v: str) -> str:
+        # Check 1: Are they all letters?
+        # Check 2: Are they all uppercase?
+        if not v.isalpha() or not v.isupper():
+            # Raising ValueError automatically triggers a clean 422 HTTP response
+            raise ValueError("Country code must be 2 uppercase letters (e.g. GB, NG)")
+        return v
+```
+1. **`@classmethod`**: Validators run *before* the model instance is fully assembled.
+2. **`raise ValueError()`**: If the check fails, raising this specific error tells FastAPI to immediately halt and return the error message directly to the client.
+3. **`return v`**: If it passes, you must return the pristine string back to Pydantic so it can be saved to the model attribute.
