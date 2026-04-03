@@ -176,13 +176,18 @@ def get_history(session: Session, bookmark_id: uuid.UUID) -> list[WeatherRespons
     return results.all()
 
 
-def set_treshold(session: Session, bookmark_id: uuid.UUID, treshold: float) -> None:
+def set_treshold(session: Session, bookmark_id: uuid.UUID, treshold: float) -> Bookmark:
     """Set the treshold for temperature alert."""
     bookmark = session.get(Bookmark, bookmark_id)
     if not bookmark:
-        return None
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Bookmark {bookmark_id} not found"
+        )
     bookmark.temperature_threshold = treshold
     session.add(bookmark)
     session.commit()
+    session.refresh(bookmark)
+    return bookmark
 
 

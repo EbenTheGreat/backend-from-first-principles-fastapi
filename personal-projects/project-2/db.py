@@ -1,14 +1,22 @@
 from typing import Annotated
 from fastapi import Depends
 from sqlmodel import SQLModel, Session, create_engine
+from config import settings
 
-# SQLite database file — persists in the project folder
-sqlite_url = "sqlite:///bookmarks.db"
-engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
+# ─────────────────────────────────────────────
+# Supabase PostgreSQL connection
+# The DATABASE_URL is loaded from .env — never hardcode credentials here.
+# Format: postgresql+psycopg2://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+# ─────────────────────────────────────────────
+engine = create_engine(
+    settings.DATABASE_URL,
+    echo=False,          # Set echo=True temporarily to log raw SQL for debugging
+    pool_pre_ping=True,  # Checks connection health before use — avoids stale connection errors
+)
 
 
 def create_db_and_tables():
-    """Create all SQLModel table models in the database on startup."""
+    """Create all SQLModel table models in the Supabase database on startup."""
     SQLModel.metadata.create_all(engine)
 
 
