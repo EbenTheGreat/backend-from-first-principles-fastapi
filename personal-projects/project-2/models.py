@@ -172,4 +172,15 @@ class WeatherCompareItem(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class WeatherHistoryListResponse(BaseModel):
+    """
+    Response model for paginated weather history.
+    Includes the actual data and a cursor for the next page.
+    """
+    data: list[WeatherHistory]
+    next_cursor: datetime | None = Field(None, alias="nextCursor")
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
 

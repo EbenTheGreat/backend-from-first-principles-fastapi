@@ -207,15 +207,25 @@ class WeatherHistoryService:
         session.refresh(history_record)
         return history_record
 
-    def get_history(self, session: Session, bookmark_id: uuid.UUID) -> list[WeatherHistory]:
-        """Return all past weather fetches for this bookmark, oldest first."""
+    def get_history(self, session: Session, bookmark_id: uuid.UUID, cursor: datetime | None = None, limit: int = 20) -> list[WeatherHistory]:
+        """
+        Return a slice of weather history for this bookmark using cursor pagination.
+        Fetches 'limit + 1' items to easily determine if there is a next page.
+        """
         statement = (
             select(WeatherHistory)
             .where(WeatherHistory.bookmark_id == bookmark_id)
-            .order_by(WeatherHistory.fetched_at.asc())
         )
-        results = session.exec(statement)
-        return results.all()
+
+        if cursor:
+            # Only return records fetched strictly AFTER our marker
+            statement = statement.where(WeatherHistory.fetched_at > cursor)
+
+        # Order by time (oldest first) and limit results
+        statement = statement.order_by(WeatherHistory.fetched_at.asc()).limit(limit + 1)
+        
+        results = session.exec(statement).all()
+        return results
 
     def set_threshold(self, session: Session, bookmark_id: uuid.UUID, threshold: float) -> Bookmark:
         """Set the temperature alert threshold for a bookmark.

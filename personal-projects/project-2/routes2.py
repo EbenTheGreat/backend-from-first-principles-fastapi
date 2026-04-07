@@ -4,7 +4,7 @@ from models import (
     Bookmark, BookMarkCreate, BookMarkResponse,
     BookMarkUpdate, BookmarkAlertResponse,
     BookMarkListResponse, WeatherResponse, WeatherHistory,
-    WeatherCompareItem
+    WeatherHistoryListResponse, WeatherCompareItem
 )
 from db import SessionDep
 from sqlmodel import select, func, or_
@@ -220,16 +220,35 @@ async def quick_weather_lookup(
     return await api_service.get_weather_for_bookmark(city, country_code, units, force_refresh)
 
 
-@v1.get("/bookmarks/{bookmark_id}/weather/history", response_model=list[WeatherHistory], status_code=status.HTTP_200_OK)
-async def get_weather_history(bookmark_id: uuid.UUID, session: SessionDep):
-    """Return all past weather fetches for a bookmark, oldest first. Returns 200 OK, 404."""
+@v1.get("/bookmarks/{bookmark_id}/weather/history", response_model=WeatherHistoryListResponse, status_code=status.HTTP_200_OK)
+async def get_weather_history(
+    bookmark_id: uuid.UUID,
+    session: SessionDep,
+    cursor: datetime | None = Query(None, description="Starting point for pagination"),
+    limit: int = Query(20, ge=1, le=100)
+):
+    """
+    Return weather history for a bookmark using Cursor pagination.
+    Returns the nextCursor to use for subsequent requests.
+    """
     bookmark = session.get(Bookmark, bookmark_id)
     if not bookmark:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bookmark not found")
 
-    # Old: return get_history(session, bookmark_id)
-    # New: call the method on the history_service instance
-    return history_service.get_history(session, bookmark_id)
+    # Fetch 1 more than limit to see if there's another page
+    results = history_service.get_history(session, bookmark_id, cursor, limit)
+    
+    # Logic to determine next_cursor
+    next_cursor = None
+    if len(results) > limit:
+        # There's more! The last item is only for the next_cursor, we discard it from 'data'
+        data = results[:limit]
+        next_cursor = data[-1].fetched_at
+    else:
+        # No more pages
+        data = results
+        
+    return WeatherHistoryListResponse(data=data, next_cursor=next_cursor)
 
 
 @v1.get("/bookmarks/alerts/temperature", response_model=list[BookmarkAlertResponse], status_code=status.HTTP_200_OK)
