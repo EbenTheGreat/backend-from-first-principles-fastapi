@@ -33,7 +33,7 @@ from config import settings
 # What functions does it need to read/write cache and handle rate limiting?
 class WeatherCacheService:
    """
-   to handle 
+   to handle cache services
    """
    CACHE_TTL = 600
    RATE_LIMIT_WINDOW_SECONDS= 60
@@ -87,7 +87,7 @@ class WeatherCacheService:
       }
 
    def flush_cache(self) -> None:
-      """
+      """ 
       clear everything in the cache
       """
       self.cache.flushdb()
@@ -160,8 +160,8 @@ class WeatherService:
          
          except httpx.TimeoutException:
             raise HTTPException(
-               status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-               detail="Weather API timeout"
+               status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+               detail="Weather API unavailable"
             )
 
          return WeatherResponse(
@@ -177,7 +177,20 @@ class WeatherService:
         cached=False
       )
 
+   
+   def get_weather_for_bookmark(self, city: str, country_code: str, units: Units, force_refresh: bool= False) -> WeatherResponse:
+      """
+      Get weather for a bookmarked city
+      """
+      if not force_refresh:
+         cached = self.cache.get_from_cache(city, country_code, units)
+         if cached:
+            return cached
 
+      
+      weather = await self.get_weather(city, country_code, units)
+      self.cache.save_to_cache(city, country_code, units, weather)
+      return weather
 
 
 # ─────────────────────────────────────────────
@@ -186,4 +199,62 @@ class WeatherService:
 
 # TODO: Write your History/Database class here.
 # It needs to save new records and read history using the Database Mantra.
+class WeatherHistoryService:
+   """
+   handles the job of saving and reading from history
+   """
+   def save_history(self,session: Session, bookmark_id: uuid.UUID, weather: WeatherResponse) -> WeatherHistory:
+      """
+      saves response to weather history
+      """
+      history_record = WeatherHistory(
+         bookmark_id = bookmark_id,
+         city= weather.city,
+         country_code = weather.country_code,
+         temperature = weather.temperature,
+         feels_like= weather.feels_like,
+         description= weather.description,
+         humidity= weather.humidity,
+         wind_speed= weather.wind_speed,
+         units=weather.units,
+         fetched_at= weather.fetched_at
+      )
 
+      session.add(history_record)
+      session.commit()
+      session.refresh(history_record)
+
+
+   def get_history(self, session: Session, bookmark_id: uuid.UUID, limit: int =100) -> list[WeatherHistory]:
+      """
+      Get history record from database
+      """
+      statement = (
+         select(WeatherHistory)
+         .where(WeatherHistory.bookmark_id == bookmark_id)
+         .order_by(WeatherHistory.fetched_at.asc())
+         .limit(limit)
+      )
+
+
+
+      result = session.exec(statement)
+      return result.all()
+
+   
+   def set_threshold(self, session: Session, bookmark_id: uuid.UUID, temperature_threshold: float) -> Bookmark:
+      """
+      Set temperature threshold for a bookmarked city
+      """
+      bookmark = session.get(Bookmark, bookmark_id)
+      if not bookmark:
+         raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Bookmark not found"
+         )
+
+      bookmark.temperature_threshold = temperature_threshold
+      session.add(bookmark)
+      session.commit()
+      session.refresh(bookmark)
+      return bookmark
